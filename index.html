@@ -62,10 +62,10 @@
   .screen.active { display: flex; }
 
   /* ---------- Home ---------- */
-  #home { justify-content: center; gap: 22px; padding: 20px; text-align: center; }
+  #home { justify-content: safe center; gap: clamp(12px, 3dvh, 22px); padding: 20px; text-align: center; overflow-y: auto; }
   .logo { display: flex; gap: 6px; }
   .logo span {
-    width: 52px; height: 52px; display: grid; place-items: center;
+    width: min(52px, calc((100vw - 70px) / 6)); aspect-ratio: 1; display: grid; place-items: center;
     font-size: 30px; font-weight: 800; color: #fff; border-radius: var(--radius);
     animation: pop-in .5s cubic-bezier(.2,1.4,.4,1) both;
   }
@@ -98,6 +98,8 @@
 
   /* ---------- Board ---------- */
   #game { justify-content: space-between; }
+  #game:focus { outline: none; }
+  .battle-label { margin: 8px 0 0; color: var(--muted); font-size: 14px; font-weight: 700; }
   .board-wrap { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 0; padding: 10px 0; }
   .board {
     --tile: min(62px, calc((100vw - 48px) / 5.4), calc((100dvh - 300px) / 6.6));
@@ -194,6 +196,17 @@
   .btn-ghost { background: transparent; color: var(--text); border: 1.5px solid var(--border-filled) !important; }
   .dict-link { display: block; text-align: center; margin-top: 14px; color: var(--muted); font-size: 13px; }
 
+  .battle-form { display: grid; gap: 10px; }
+  .battle-form p { margin: 0 0 4px; color: var(--muted); line-height: 1.5; }
+  .battle-form label { font-size: 15px; font-weight: 700; }
+  .battle-form input, .share-text {
+    width: 100%; padding: 12px; border: 1px solid var(--border-filled); border-radius: var(--radius);
+    background: var(--bg); color: var(--text); font: inherit; user-select: text; -webkit-user-select: text;
+  }
+  .battle-form .btn-primary { padding: 14px; border: none; border-radius: 999px; font-size: 16px; font-weight: 700; }
+  .share-text:not([hidden]) { display: block; margin-top: 12px; resize: vertical; }
+  #battle-modal .close { font-size: 24px; }
+
   .help p, .help li { font-size: 15px; line-height: 1.5; }
   .help ul { padding-left: 20px; }
   .ex { display: flex; gap: 4px; margin: 10px 0 4px; }
@@ -231,8 +244,9 @@
 <!-- Home screen -->
 <section class="screen active" id="home">
   <div class="logo"><span>W</span><span>O</span><span>R</span><span>D</span><span>L</span><span>E</span></div>
-  <p class="tagline">Guess the hidden <b>5-letter word</b> in <b>6 tries</b>.<br>A brand-new random word every time you play.</p>
+  <p class="tagline">Guess the hidden <b>5-letter word</b> in <b>6 tries</b>.</p>
   <button class="play-btn" id="btn-play">Play</button>
+  <button class="secondary-btn" id="btn-battle">Wordle Battle</button>
   <div class="home-row">
     <button class="secondary-btn" id="home-help">How to play</button>
     <button class="secondary-btn" id="home-stats">Statistics</button>
@@ -242,23 +256,41 @@
 </section>
 
 <!-- Game screen -->
-<section class="screen" id="game">
+<section class="screen" id="game" tabindex="-1">
+  <p class="battle-label" id="game-battle" hidden></p>
   <div class="board-wrap"><div class="board" id="board"></div></div>
   <div class="keyboard" id="keyboard"></div>
 </section>
 
 <div id="toasts"></div>
 
+<!-- Battle setup -->
+<div class="overlay" id="battle-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="battle-title">
+    <button class="icon-btn close" data-close aria-label="Close">×</button>
+    <h2 id="battle-title">Wordle Battle</h2>
+    <form class="battle-form" id="battle-form">
+      <p id="battle-instructions">Pick a number from 1 to 999,999. Your friends can enter the same number to get the same word. Solve it in the fewest guesses to win.</p>
+      <label for="battle-seed">Battle number</label>
+      <input id="battle-seed" type="number" inputmode="numeric" min="1" max="999999" step="1" required aria-describedby="battle-instructions">
+      <button class="btn-primary" type="submit">Start battle</button>
+    </form>
+  </div>
+</div>
+
 <!-- Result / stats modal -->
 <div class="overlay" id="stats-modal">
   <div class="modal">
     <button class="icon-btn close" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
     <div id="result-block"></div>
-    <h2>Statistics</h2>
-    <div class="stats-grid" id="stats-grid"></div>
-    <h2>Guess Distribution</h2>
-    <div class="dist" id="dist"></div>
+    <div id="solo-stats">
+      <h2>Statistics</h2>
+      <div class="stats-grid" id="stats-grid"></div>
+      <h2>Guess Distribution</h2>
+      <div class="dist" id="dist"></div>
+    </div>
     <div class="modal-actions" id="modal-actions"></div>
+    <textarea class="share-text" id="share-text" aria-label="Result to copy" rows="5" readonly hidden></textarea>
   </div>
 </div>
 
@@ -275,6 +307,7 @@
     <div class="ex"><div class="tile">V</div><div class="tile">A</div><div class="tile">G</div><div class="tile absent">U</div><div class="tile">E</div></div>
     <p><b>U</b> is not in the word anywhere.</p>
     <p style="color:var(--muted)">Hit <b>Play</b> any time for a new random word — there's no daily limit.</p>
+    <p style="color:var(--muted)">In <b>Wordle Battle</b>, enter the same battle number as a friend and compare how many guesses you each took.</p>
   </div>
 </div>
 
@@ -312,15 +345,19 @@ let recent = store.get('wordle.recent', []);
 
 /* ======== State ======== */
 const ROWS = 6, COLS = 5;
-let answer = '', guesses = [], current = '', over = true, busy = false, keyState = {}, lastWin = null, lastRows = 0;
+let answer = '', guesses = [], current = '', over = true, busy = false, keyState = {};
+let battleSeed = null, lastWin = null, lastRows = 0, lastHard = false;
+let guessTimer, resultTimer;
 
 /* ======== DOM ======== */
 const $ = s => document.querySelector(s);
 const boardEl = $('#board'), kbEl = $('#keyboard');
+const battleInput = $('#battle-seed');
 
 function show(screen) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === screen));
   if (screen === 'home') renderHome();
+  else $('#game').focus({ preventScroll: true });
 }
 
 function buildBoard() {
@@ -361,8 +398,23 @@ function pickWord() {
   return w;
 }
 
-function newGame() {
-  answer = pickWord(); guesses = []; current = ''; over = false; busy = false; keyState = {};
+function battleWord(seed) {
+  // Keep the first 1,697 answers in order so published battle numbers stay valid.
+  const wordCount = 1697;
+  let hash = Math.imul(seed ^ (seed >>> 16), 0x85ebca6b);
+  hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
+  return ANSWERS[((hash ^ (hash >>> 16)) >>> 0) % wordCount];
+}
+
+function newGame(seed = null) {
+  clearTimeout(guessTimer);
+  clearTimeout(resultTimer);
+  battleSeed = seed;
+  answer = seed === null ? pickWord() : battleWord(seed);
+  guesses = []; current = ''; over = false; busy = false; keyState = {};
+  const label = $('#game-battle');
+  label.hidden = seed === null;
+  label.textContent = seed === null ? '' : `Wordle Battle #${seed}`;
   buildBoard(); buildKeyboard(); closeModals(); show('game');
 }
 
@@ -414,7 +466,7 @@ function submit() {
       setTimeout(() => t.classList.add(res[i]), 250);
     }, i * FLIP);
   });
-  setTimeout(() => {
+  guessTimer = setTimeout(() => {
     updateKeys(guess, res); busy = false;
     if (guess === answer) finish(true);
     else if (guesses.length === ROWS) finish(false);
@@ -434,20 +486,27 @@ function updateKeys(guess, res) {
 
 const PRAISE = ['Genius', 'Magnificent', 'Impressive', 'Splendid', 'Great', 'Phew'];
 function finish(win) {
-  over = true; lastWin = win; lastRows = guesses.length;
-  stats.played++;
+  over = true; lastWin = win; lastRows = guesses.length; lastHard = settings.hard;
+  if (battleSeed === null) {
+    stats.played++;
+    if (win) {
+      stats.wins++; stats.streak++; stats.maxStreak = Math.max(stats.maxStreak, stats.streak); stats.dist[lastRows - 1]++;
+    } else {
+      stats.streak = 0;
+    }
+    store.set('wordle.stats', stats);
+  }
   if (win) {
-    stats.wins++; stats.streak++; stats.maxStreak = Math.max(stats.maxStreak, stats.streak); stats.dist[guesses.length - 1]++;
-    toast(PRAISE[guesses.length - 1]);
-    [...rowEl(guesses.length - 1).children].forEach((t, i) => {
+    toast(PRAISE[lastRows - 1]);
+    [...rowEl(lastRows - 1).children].forEach((t, i) => {
       setTimeout(() => { t.classList.remove('flip'); t.classList.add('bounce'); }, i * 100);
     });
   } else {
-    stats.streak = 0;
     toast(answer.toUpperCase(), 2600);
   }
-  store.set('wordle.stats', stats);
-  setTimeout(() => openStats(true), win ? 1600 : 1900);
+  resultTimer = setTimeout(() => {
+    if ($('#game').classList.contains('active') && !document.querySelector('.overlay.open')) openStats(true);
+  }, win ? 1600 : 1900);
 }
 
 function onKey(key) {
@@ -467,11 +526,21 @@ function toast(msg, ms = 1300) {
 function openModal(id) { closeModals(); $(id).classList.add('open'); }
 function closeModals() { document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open')); }
 
+function openBattle() {
+  battleInput.value = !over && battleSeed !== null ? battleSeed : '';
+  openModal('#battle-modal');
+  battleInput.focus();
+}
+
 function openStats(afterGame = false) {
   const rb = $('#result-block'), actions = $('#modal-actions');
+  const battleResult = afterGame && battleSeed !== null;
+  $('#solo-stats').hidden = battleResult;
+  $('#share-text').hidden = true;
   rb.innerHTML = ''; actions.innerHTML = '';
   if (afterGame) {
     rb.innerHTML = `
+      ${battleResult ? `<h2>Wordle Battle #${battleSeed}</h2>` : ''}
       <p class="result-title">${lastWin ? PRAISE[lastRows - 1] + '!' : 'So close!'}</p>
       <p class="result-sub">${lastWin ? `Solved in ${lastRows} ${lastRows === 1 ? 'guess' : 'guesses'}` : 'The word was'}</p>
       <div class="answer-reveal">${[...answer].map(c => `<span>${c}</span>`).join('')}</div>`;
@@ -484,13 +553,16 @@ function openStats(afterGame = false) {
     <div class="dist-row"><span class="n">${i+1}</span>
       <div class="dist-bar ${afterGame && lastWin && lastRows === i+1 ? 'hl' : ''}" style="width:${Math.max(7, v / max * 100)}%">${v}</div></div>`).join('');
 
-  const play = document.createElement('button'); play.className = 'btn-primary'; play.textContent = 'Play again'; play.onclick = newGame;
+  const play = document.createElement('button'); play.className = 'btn-primary';
+  play.textContent = battleResult ? 'New battle' : 'Play again';
+  play.onclick = battleResult ? openBattle : () => newGame();
   if (afterGame) {
     const share = document.createElement('button'); share.className = 'btn-ghost'; share.textContent = 'Share'; share.onclick = shareResult;
     actions.append(share, play);
   } else {
     actions.append(play);
-    if (!over) play.textContent = 'New word';
+    if (battleSeed !== null) play.textContent = 'Play solo';
+    else if (!over) play.textContent = 'New word';
   }
   document.querySelectorAll('.dict-link').forEach(el => el.remove());
   if (afterGame) {
@@ -501,18 +573,32 @@ function openStats(afterGame = false) {
   openModal('#stats-modal');
 }
 
-function shareResult() {
-  const map = settings.cb ? { correct: '🟧', present: '🟦', absent: '⬛' } : { correct: '🟩', present: '🟨', absent: '⬛' };
+function shareResult(event) {
+  const button = event.currentTarget;
+  const map = { correct: '🟩', present: '🟨', absent: '⬛' };
   const grid = guesses.map(g => score(g, answer).map(s => map[s]).join('')).join('\n');
-  const text = `Wordle ${lastWin ? guesses.length : 'X'}/6${settings.hard ? '*' : ''}\n\n${grid}`;
+  const title = battleSeed === null ? 'Wordle' : `Wordle Battle #${battleSeed}`;
+  const text = `${title} ${lastWin ? lastRows : 'X'}/${ROWS}${lastHard ? '*' : ''}\n\n${grid}`;
   const done = () => toast('Copied to clipboard');
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
-  } else fallbackCopy(text, done);
-}
-function fallbackCopy(text, done) {
-  const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
-  try { document.execCommand('copy'); done(); } catch { toast('Copy failed'); } ta.remove();
+  const fallbackCopy = () => {
+    if (!button.isConnected || !$('#stats-modal').classList.contains('open')) return;
+    const field = $('#share-text');
+    field.value = text;
+    field.hidden = false;
+    field.focus();
+    field.select();
+    try {
+      if (document.execCommand('copy')) {
+        field.hidden = true;
+        button.focus();
+        done();
+        return;
+      }
+    } catch {}
+    toast('Copy the selected result');
+  };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallbackCopy);
+  else fallbackCopy();
 }
 
 function renderHome() {
@@ -521,7 +607,7 @@ function renderHome() {
     ? `<div><b>${stats.played}</b><small>Played</small></div><div><b>${pct}%</b><small>Won</small></div><div><b>${stats.streak}</b><small>Streak</small></div>`
     : '';
   $('#mode-pill').textContent = settings.hard ? 'Hard mode is on' : '';
-  $('#btn-play').textContent = (!over && guesses.length) ? 'Resume' : 'Play';
+  $('#btn-play').textContent = battleSeed === null && !over && guesses.length ? 'Resume' : 'Play';
 }
 
 function applySettings() {
@@ -536,13 +622,22 @@ function applySettings() {
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { closeModals(); return; }
+  if (document.querySelector('.overlay.open')) return;
+  if (e.key === 'Enter' && e.target instanceof HTMLButtonElement) return;
   const k = e.key === 'Enter' || e.key === 'Backspace' ? e.key : e.key.toLowerCase();
   if ($('#game').classList.contains('active')) { onKey(k); if (k === 'Enter') e.preventDefault(); }
-  else if ($('#home').classList.contains('active') && e.key === 'Enter' && !document.querySelector('.overlay.open')) $('#btn-play').click();
+  else if ($('#home').classList.contains('active') && e.key === 'Enter') $('#btn-play').click();
 });
 kbEl.addEventListener('click', e => { const k = e.target.closest('.key'); if (k) { onKey(k.dataset.key); k.blur(); } });
 
-$('#btn-play').onclick = () => { if (!over && guesses.length) show('game'); else newGame(); };
+$('#btn-play').onclick = () => { if (battleSeed === null && !over && guesses.length) show('game'); else newGame(); };
+$('#btn-battle').onclick = openBattle;
+$('#battle-form').onsubmit = e => {
+  e.preventDefault();
+  const seed = battleInput.valueAsNumber;
+  if (!over && battleSeed === seed) { closeModals(); show('game'); }
+  else newGame(seed);
+};
 $('#btn-home').onclick = () => { closeModals(); show('home'); };
 $('#btn-help').onclick = $('#home-help').onclick = () => openModal('#help-modal');
 $('#btn-stats').onclick = $('#home-stats').onclick = () => openStats(over && guesses.length > 0 && $('#game').classList.contains('active'));
@@ -564,7 +659,9 @@ $('#bank-info').textContent = `${ANSWERS.length.toLocaleString()} possible answe
 
 applySettings();
 renderHome();
-if (!stats.played) setTimeout(() => openModal('#help-modal'), 400);
+if (!stats.played) setTimeout(() => {
+  if ($('#home').classList.contains('active') && !document.querySelector('.overlay.open')) openModal('#help-modal');
+}, 400);
 </script>
 </body>
 </html>
