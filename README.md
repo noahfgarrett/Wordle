@@ -2,7 +2,7 @@
 
 Guess the hidden 5-letter word in 6 tries. Every time you hit **Play** you get a new random word, with no daily limit.
 
-**Play it here:** https://noahfgarrett.github.io/wordle/
+**Play it here:** https://noahfgarrett.github.io/Wordle/
 
 - 1,697 common answer words and 12,578 accepted guesses
 - On-screen keyboard for phones, plus physical keyboard support
