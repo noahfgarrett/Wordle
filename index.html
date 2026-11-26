@@ -451,8 +451,8 @@ function pickWord() {
 }
 
 function battleWord(seed) {
-  // Keep each range's answer count and order stable so battle numbers keep their words.
-  const wordCount = seed <= 999999 ? 1697 : 1922;
+  // Keep this count and the answer order stable so battle numbers keep their words.
+  const wordCount = 1922;
   let hash = Math.imul(seed ^ (seed >>> 16), 0x85ebca6b);
   hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
   return ANSWERS[((hash ^ (hash >>> 16)) >>> 0) % wordCount];
